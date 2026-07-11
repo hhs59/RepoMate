@@ -36,7 +36,22 @@ export default function Home() {
         body: JSON.stringify({ repo_url: initUrl }),
       });
       if (res.ok) {
-        setInitStatus('Use CLI: repomate init ' + initUrl);
+        setInitStatus('Indexing in background... The repo will appear in the dropdown when ready.');
+        const poll = setInterval(async () => {
+          try {
+            const r = await fetch(`${API}/repos`);
+            const d = await r.json();
+            const repos = d.repos || [];
+            const slug = initUrl.split('/').slice(-2).join('-').replace('.git','');
+            if (repos.includes(slug)) {
+              clearInterval(poll);
+              setInitStatus('Done! Select the repo above to chat.');
+              setInitUrl('');
+              fetchRepos();
+            }
+          } catch {}
+        }, 5000);
+        setTimeout(() => clearInterval(poll), 600000);
       }
     } catch {
       setInitStatus('Backend not reachable. Use CLI: repomate init ' + initUrl);
