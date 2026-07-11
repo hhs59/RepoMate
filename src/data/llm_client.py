@@ -37,27 +37,29 @@ def complete(
     max_tokens: int = 1024,
     retries: int = 4,
 ) -> str:
+    import time as _time
+
     model = model or get_llm_model()
 
-    @retry(
-        stop=stop_after_attempt(retries),
-        wait=wait_exponential(multiplier=1, min=2, max=30),
-        reraise=True,
-    )
-    def _call() -> str:
-        resp = _get_client().chat.completions.create(
-            model=model,
-            messages=messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
-        )
-        _cost.add(
-            prompt_tokens=resp.usage.prompt_tokens if resp.usage else 0,
-            completion_tokens=resp.usage.completion_tokens if resp.usage else 0,
-        )
-        return resp.choices[0].message.content or ""
-
-    return _call()
+    last_err = None
+    for attempt in range(retries):
+        try:
+            resp = _get_client().chat.completions.create(
+                model=model,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+            )
+            _cost.add(
+                prompt_tokens=resp.usage.prompt_tokens if resp.usage else 0,
+                completion_tokens=resp.usage.completion_tokens if resp.usage else 0,
+            )
+            return resp.choices[0].message.content or ""
+        except Exception as e:
+            last_err = e
+            if attempt < retries - 1:
+                _time.sleep(2 ** attempt)
+    raise last_err
 
 
 def complete_json(
