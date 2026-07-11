@@ -1,0 +1,41 @@
+services:
+  repomate:
+    build:
+      context: .
+      args:
+        GPU_BASE: pytorch/pytorch:latest
+    # GPU passthrough (NVIDIA)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+    # For ROCm, use:
+    #   devices:
+    #     - /dev/kfd:/dev/kfd
+    #     - /dev/dri:/dev/dri
+    #   group_add: [video, render]
+    #   ipc: host
+    ports:
+      - "8000:8000"
+      - "8080:8080"
+    volumes:
+      - ./data:/app/data
+      - ./.env:/app/.env:ro
+    environment:
+      - REPOMATE_DATA_DIR=/app/data
+      - REPOMATE_LOG_LEVEL=INFO
+      - REPOMATE_HYBRID=0
+      - REPOMATE_DEMO_REPO=
+      - REPOMATE_BASE_MODEL_ID=Qwen/Qwen2.5-1.5B-Instruct
+      - REPOMATE_VLLM_PORT=8000
+      - REPOMATE_API_PORT=8080
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    restart: unless-stopped
