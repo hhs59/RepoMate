@@ -8,7 +8,7 @@ from rich.logging import RichHandler
 
 
 def setup_logging() -> None:
-    level_name = os.environ.get("CIYC_LOG_LEVEL", "INFO").upper()
+    level_name = os.environ.get("REPOMATE_LOG_LEVEL", "INFO").upper()
     level = getattr(logging, level_name, logging.INFO)
 
     handler = RichHandler(console=Console(), rich_tracebacks=True, show_time=False)

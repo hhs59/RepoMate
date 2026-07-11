@@ -18,21 +18,6 @@ DROP_DIRS = frozenset({
     "venv", ".venv", "__pycache__", ".eggs", ".tox", ".nox", ".pytest_cache",
 })
 
-DROP_PATTERNS = frozenset({
-    "*.min.js", "*.min.css", "*.lock", "package-lock.json", "yarn.lock",
-    "go.sum", "Cargo.lock", "Pipfile.lock", "poetry.lock", "Gemfile.lock",
-})
-
-BINARY_EXTENSIONS = frozenset({
-    ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".svg", ".ico", ".webp",
-    ".pdf", ".zip", ".tar", ".gz", ".bz2", ".xz", ".7z", ".rar",
-    ".so", ".dll", ".dylib", ".exe", ".bin", ".parquet", ".npy",
-    ".npz", ".pkl", ".pickle", ".joblib", ".h5", ".hdf5", ".onnx",
-    ".pt", ".pth", ".ckpt", ".safetensors", ".whl", ".egg", ".o", ".a",
-    ".mp3", ".mp4", ".avi", ".wav", ".mov", ".mkv", ".flac",
-    ".ttf", ".otf", ".woff", ".woff2", ".eot",
-})
-
 MAX_FILE_SIZE_BYTES = 256 * 1024
 MAX_COMMITS = 2000
 MAX_FILES = 3000
@@ -40,23 +25,53 @@ DIFF_MAX_TOKENS = 2048
 
 
 class Settings(BaseSettings):
-    fireworks_api_key: str
-    fireworks_base_url: str = "https://api.fireworks.ai/inference/v1"
-    fireworks_synth_model: str = "accounts/fireworks/models/llama-v3p1-70b-instruct"
-    gemma_model_id: str = "google/gemma-2-9b-it"
-    bge_model_id: str = "BAAI/bge-m3"
-    amd_device: str = "cuda:0"
-    data_dir: Path = Path("./data")
+    llm_api_key: str = ""
+    llm_base_url: str = "https://api.openai.com/v1"
+    llm_model: str = "gpt-4o-mini"
+    base_model_id: str = "Qwen/Qwen2.5-1.5B-Instruct"
+    bge_model_id: str = "BAAI/bge-small-en-v1.5"
+    reranker_model_id: str = "BAAI/bge-reranker-base"
+    device: str = ""
+    data_dir: Path = Path(__file__).resolve().parent.parent / "data"
     vllm_port: int = 8000
     api_port: int = 8080
-    ui_port: int = 8501
     chunk_max_tokens: int = 1024
     chunk_overlap: int = 128
     synth_pairs_per_chunk: int = 3
+    hybrid_dense_weight: float = 0.7
+    hybrid_sparse_weight: float = 0.3
+    rerank_pool_size: int = 20
 
-    model_config = SettingsConfigDict(env_file=".env", env_prefix="CIYC_")
+    model_config = SettingsConfigDict(env_file=".env", env_prefix="REPOMATE_")
 
 
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
+
+def get_llm_api_key() -> str:
+    return get_settings().llm_api_key
+
+def get_llm_base_url() -> str:
+    return get_settings().llm_base_url
+
+def get_llm_model() -> str:
+    return get_settings().llm_model
+
+def get_base_model_id() -> str:
+    return get_settings().base_model_id
+
+def get_device() -> str:
+    s = get_settings()
+    if s.device:
+        return s.device
+    try:
+        import torch
+        if torch.cuda.is_available():
+            return "cuda:0"
+        if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+            return "mps"
+    except Exception:
+        pass
+    return "cpu"
