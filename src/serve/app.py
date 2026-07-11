@@ -58,6 +58,29 @@ def health() -> dict:
     return {"status": "ok", "vllm_ready": is_ready()}
 
 
+@app.post("/ingest")
+def ingest(req: dict) -> dict:
+    import subprocess
+    import sys
+    import os
+
+    repo_url = req.get("repo_url")
+    if not repo_url:
+        raise HTTPException(status_code=400, detail="repo_url required")
+
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    log_path = os.path.join(project_root, "data", "ingest_log.txt")
+
+    subprocess.Popen(
+        [sys.executable, "-m", "src.cli", "init", repo_url],
+        cwd=project_root,
+        stdout=open(log_path, "w"),
+        stderr=subprocess.STDOUT,
+    )
+
+    return {"status": "started", "log": log_path}
+
+
 @app.get("/repos")
 def list_repos() -> dict:
     settings = get_settings()
