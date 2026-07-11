@@ -9,26 +9,24 @@ from pathlib import Path
 
 import tiktoken
 
-from ciyc.config import (
+from src.config import (
     KEEP_EXTENSIONS,
     DIFF_MAX_TOKENS,
     MAX_COMMITS,
     get_settings,
 )
-from ciyc.logging import get_logger
+from src.logging import get_logger
 
 logger = get_logger(__name__)
 
 _TOKENIZER = tiktoken.get_encoding("cl100k_base")
 
-_STOPLIST: dict[str, bool] = {
-    s: True for s in (
-        "wip", "fix", "fixes", "fixed", "fixup", "update", "updated", "updates",
-        "tmp", "temp", "test", "tests", "asdf", "lol", "no message", "commit",
-        "changes", "stuff", "misc", "cleanup", "clean up", "revert", ".",
-        "..", "...", "ok", "done", "final", "v1", "bump", "release", "merge",
-    )
-}
+_STOPLIST: frozenset[str] = frozenset({
+    "wip", "fix", "fixes", "fixed", "fixup", "update", "updated", "updates",
+    "tmp", "temp", "test", "tests", "asdf", "lol", "no message", "commit",
+    "changes", "stuff", "misc", "cleanup", "clean up", "revert", ".",
+    "..", "...", "ok", "done", "final", "v1", "bump", "release", "merge",
+})
 
 _VERSION_BUMP_RE = re.compile(r"^v?\d+\.\d+(\.\d+)?(-[\w.]+)?$")
 _BUMP_VERSION_RE = re.compile(r"^bump\s+version", re.IGNORECASE)
@@ -88,7 +86,6 @@ def _diff_hash(diff_text: str) -> str:
 
 def extract_git_pairs(repo_path: Path, slug: str) -> tuple[list[dict], list[dict], int]:
     repo_path = Path(repo_path)
-    settings = get_settings()
 
     cmd = ["git", "log", "--format=%H%x09%s%x09%b", "--no-merges", f"-n{MAX_COMMITS}"]
     result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(repo_path))

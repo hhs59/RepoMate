@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Optional
 
 import tiktoken
 import tree_sitter_languages
@@ -137,7 +136,6 @@ def chunk_file(
 ) -> list[CodeChunk]:
     rel_path = str(file_path.relative_to(repo_root))
     language = _language_for_file(file_path)
-    settings = get_settings()
     chunks: list[CodeChunk] = []
 
     if language is None:

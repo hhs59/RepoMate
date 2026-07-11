@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Optional
 
 import tree_sitter_languages
 
-from ciyc.config import get_settings
-from ciyc.ingest.models import CallGraph, GraphNode, GraphEdge
-from ciyc.logging import get_logger
+from src.config import get_settings
+from src.ingest.models import CallGraph, GraphNode, GraphEdge
+from src.ingest.chunker import _get_parser, _get_node_name, _SYMBOL_NODE_TYPES, _LANGUAGE_MAP
+from src.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -86,42 +86,6 @@ _CALL_QUERY_BY_LANG: dict[str, str] = {
         (call_expression (navigation_expression name: (simple_identifier) @call_method))
     """,
 }
-
-_SYMBOL_NODE_TYPES = frozenset({
-    "function_definition", "function_declaration", "method_definition",
-    "class_definition", "class_declaration", "decorated_definition",
-    "constructor_declaration", "arrow_function", "interface_declaration",
-    "trait_declaration", "struct_declaration", "enum_declaration",
-    "func_declaration", "method_declaration", "impl_item",
-    "static_factory_method",
-})
-
-_PARSER_CACHE: dict[str, object] = {}
-
-
-def _get_parser(language: str) -> object | None:
-    if language not in _PARSER_CACHE:
-        try:
-            _PARSER_CACHE[language] = tree_sitter_languages.get_parser(language)
-        except Exception:
-            _PARSER_CACHE[language] = None
-    return _PARSER_CACHE[language]
-
-
-def _get_node_name(node) -> str | None:
-    name_node = node.child_by_field_name("name")
-    if name_node:
-        return name_node.text.decode()
-    decl = node.child_by_field_name("declarator")
-    if decl:
-        name_node = decl.child_by_field_name("name")
-        if name_node:
-            return name_node.text.decode()
-    return None
-
-
-def _get_node_text(node, src: bytes) -> str:
-    return src[node.start_byte:node.end_byte].decode()
 
 
 def _extract_definitions(node, src: bytes, file_path: str, nodes: list[GraphNode]):
@@ -212,40 +176,15 @@ def _collect_names(node, src: bytes) -> list[str]:
     return names
 
 
-_EXT_LANG_MAP: dict[str, str] = {
-    ".py": "python",
-    ".js": "javascript",
-    ".ts": "typescript",
-    ".tsx": "tsx",
-    ".jsx": "javascript",
-    ".java": "java",
-    ".kt": "kotlin",
-    ".go": "go",
-    ".rs": "rust",
-    ".c": "c",
-    ".h": "c",
-    ".cpp": "cpp",
-    ".hpp": "cpp",
-    ".cc": "cpp",
-    ".hxx": "cpp",
-    ".cs": "c_sharp",
-    ".rb": "ruby",
-    ".php": "php",
-    ".swift": "swift",
-    ".scala": "scala",
-}
-
-
 def extract_call_graph(slug: str, repo_path: Path) -> CallGraph:
     repo_path = Path(repo_path)
-    settings = get_settings()
     graph = CallGraph()
     file_count = 0
 
-    from ciyc.ingest.filter import iter_code_files
+    from src.ingest.filter import iter_code_files
 
     for file_path in iter_code_files(repo_path):
-        lang = _EXT_LANG_MAP.get(file_path.suffix.lower())
+        lang = _LANGUAGE_MAP.get(file_path.suffix.lower())
         if lang is None:
             continue
 
@@ -269,7 +208,7 @@ def extract_call_graph(slug: str, repo_path: Path) -> CallGraph:
     def_names = {n.name for n in graph.nodes}
 
     for file_path in iter_code_files(repo_path):
-        lang = _EXT_LANG_MAP.get(file_path.suffix.lower())
+        lang = _LANGUAGE_MAP.get(file_path.suffix.lower())
         if lang is None:
             continue
 
@@ -287,12 +226,6 @@ def extract_call_graph(slug: str, repo_path: Path) -> CallGraph:
         _extract_call_sites(tree.root_node, src, rel_path, def_names, graph.edges)
 
     logger.info("Found %d call edges", len(graph.edges))
-
-    callers_map: dict[str, list[str]] = {}
-    callees_map: dict[str, list[str]] = {}
-    for edge in graph.edges:
-        callers_map.setdefault(edge.callee, []).append(edge.caller)
-        callees_map.setdefault(edge.caller, []).append(edge.callee)
 
     return graph
 

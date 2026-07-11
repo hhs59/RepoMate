@@ -8,17 +8,12 @@ import pathspec
 from src.config import (
     KEEP_EXTENSIONS,
     DROP_DIRS,
-    BINARY_EXTENSIONS,
     MAX_FILE_SIZE_BYTES,
     MAX_FILES,
 )
 from src.logging import get_logger
 
 logger = get_logger(__name__)
-
-
-def _is_binary(ext: str) -> bool:
-    return ext.lower() in BINARY_EXTENSIONS
 
 
 def _load_gitignore_specs(repo_root: Path) -> list[pathspec.PathSpec]:
@@ -40,8 +35,6 @@ def _should_skip(path: Path, specs: list[pathspec.PathSpec]) -> bool:
     for part in path.parts:
         if part in DROP_DIRS or part.startswith(".") and part not in (".github",):
             return True
-    if path.suffix.lower() in BINARY_EXTENSIONS:
-        return True
     for spec in specs:
         if spec.match_file(str(path)):
             return True
