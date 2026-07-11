@@ -22,7 +22,10 @@ export default function Home() {
       const res = await fetch(`${API}/repos`);
       const data = await res.json();
       setRepos(data.repos || []);
-      if (!selected && data.repos?.length) setSelected(data.repos[0]);
+      setSelected(prev => {
+        if (prev && data.repos?.includes(prev)) return prev;
+        return data.repos?.[0] || '';
+      });
     } catch {}
   };
 
